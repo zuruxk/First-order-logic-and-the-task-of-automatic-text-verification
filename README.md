@@ -1,0 +1,1 @@
+# First-order-logic-and-the-task-of-automatic-text-verification
