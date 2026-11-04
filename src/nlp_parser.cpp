@@ -15,9 +15,6 @@ namespace nlp {
             if (!x.empty() && x[0] >= 'a' && x[0] <= 'z')x[0] -= 32;
             return x;
         }
-        // Tokens slice (const Tokens& t, std::size_t a, std::size_t b) {
-        //     return Tokens (t.begin() + static_cast <long>(a), t.begin() + static_cast <long>(b));
-        // }
         std::vector <Tokens> splitOn (const Tokens& t, const std::string& op) {
             std::vector <Tokens> out;
             Tokens part;
@@ -84,6 +81,47 @@ namespace nlp {
             }
             return true;
         }
+        bool parseImplication(const Tokens& tokens, fol::Clause& clause, std::string& error) {
+            const auto thenIt = std::find(tokens.begin(), tokens.end(), "то");
+            if (thenIt == tokens.end()) {
+                error = "В условном предложении не найдено слово 'то'.";
+                return false;
+            }
+            Tokens antecedent(tokens.begin() + 1, thenIt);
+            Tokens consequent(thenIt + 1, tokens.end());
+            if (antecedent.empty() || consequent.empty() ||
+                has(antecedent, "или") ||
+                has(consequent, "и") ||
+                has(consequent, "или")) {
+                error = "Поддерживается форма: Если A [и B], то C. A, B и C должны быть простыми утверждениями.";
+                return false;
+            }
+            const auto conditions = splitOn(antecedent, "и");
+            if (conditions.empty()) {
+                error = "Не удалось распознать условие импликации.";
+                return false;
+            }
+            std::string subject;
+            for (auto condition : conditions) {
+                addImplicitSubject(condition, antecedent.front());
+                if (subject.empty()) {
+                    subject = condition.front();
+                }
+                fol::Literal literal;
+                if (!parseAtomTokens(condition, literal, error)) {
+                    return false;
+                }
+                literal.negated = !literal.negated;
+                clause.push_back(literal);
+            }
+            addImplicitSubject(consequent, subject);
+            fol::Literal conclusion;
+            if (!parseAtomTokens(consequent, conclusion, error)) {
+                return false;
+            }
+            clause.push_back(conclusion);
+            return true;
+        }
     }
     ParseResult parseKnowledgeSentence (const std::string& s) {
         ParseResult r;
@@ -104,29 +142,10 @@ namespace nlp {
             return r;
         }
         if (t[0] == "если") {
-            auto it = std::find(t.begin(), t.end(), "то");
-            if (it == t.end()) {
-                r.explanation = "В условном предложении не найдено слово 'то'.";
-                return r;
-            }
-            Tokens left (t.begin() + 1,it), right(it + 1, t.end());
-            auto antecedents = splitOn(left, "и");
-            if (antecedents.empty() || right.empty() || has(left, "или") || has(right, "и") || has(right, "или")) {
-                r.explanation = "Поддерживается форма: Если A и B, то C. В заключении C должна быть одна простая часть.";
-                return r;
-            }
             fol::Clause c;
-            for (auto& part: antecedents) {
-                addImplicitSubject (part, left.empty() ? std::string() : left.front());
-                fol::Literal l;
-                if (!parseAtomTokens(part, l, r.explanation)) return r;
-                l.negated =! l.negated;
-                c.push_back(l);
+            if (!parseImplication(t, c, r.explanation)) {
+                return r;
             }
-            fol::Literal conclusion;
-            addImplicitSubject (right, right.empty() ? std::string() : right.front());
-            if (!parseAtomTokens (right, conclusion, r.explanation)) return r;
-            c.push_back(conclusion);
             r.success = true;
             r.isRule = true;
             r.clause = c;
