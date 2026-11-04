@@ -134,7 +134,7 @@ cmake --build build
 Запуск в Linux/macOS:
 
 ```bash
-./build/russian_text_resolution
+./build/text_resolution
 ```
 
 В Windows исполняемый файл находится в каталоге сборки; точный путь зависит от используемого генератора CMake (например, `build/Debug/russian_text_resolution.exe`).
