@@ -45,3 +45,7 @@ target_link_libraries(bench PRIVATE fol_ext)
 
 add_executable(ext_tests tests/tests.cpp)
 target_link_libraries(ext_tests PRIVATE fol_ext)
+
+# замер: вывод с посылками и только из аксиом (теорема о дедукции)
+add_executable(deduction_bench tools/deduction_bench.cpp)
+target_link_libraries(deduction_bench PRIVATE fol_ext)
